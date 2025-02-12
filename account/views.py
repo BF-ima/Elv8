@@ -3,10 +3,32 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from .models import Personne, Startup, BureauEtude
 from .serializers import PersonneSerializer, StartupSerializer, BureauEtudeSerializer, RegisterStartupSerializer, RegisterSerializer
-
+from rest_framework.permissions import AllowAny
 from rest_framework import generics
+from rest_framework.views import APIView
+from rest_framework.exceptions import APIException
+from .authentication import create_access_token, create_refresh_token
 
+class LoginAPIView(APIView):
+    def post(self, request):
+        user = Startup.objects.filter(email=request.data['email']).first()
 
+        if not user:
+            raise APIException('Invalid credentials!')
+
+        if not user.check_password(request.data['password']):
+            raise APIException('Invalid password!')
+        access_token = create_access_token(user.id_startup, user.nom)
+        refresh_token = create_refresh_token(user.id_startup, user.nom)
+
+        response = Response()
+
+        response.set_cookie(key='refreshToken', value=refresh_token, httponly=True)
+        response.data = {
+            'token': access_token
+        }
+
+        return response
 
 # For creating and listing Personne objects
 class PersonneListCreateView(generics.ListCreateAPIView):

@@ -3,7 +3,10 @@ from .models import Personne, Startup, BureauEtude
 from django.contrib.auth.password_validation import validate_password 
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
-
+from django.contrib.auth import authenticate
+from django.contrib.auth.backends import ModelBackend
+   
+    
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
     password2 = serializers.CharField(write_only=True, required=True)
