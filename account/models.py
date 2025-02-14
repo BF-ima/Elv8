@@ -18,7 +18,6 @@ class PersonneManager(BaseUserManager):
             titre_role=titre_role,
             description_role=description_role,
         )
-        extra_fields.setdefault('is_active', True)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -38,7 +37,6 @@ class StartupManager(BaseUserManager):
             description=description,
             secteur=secteur,
         )
-        extra_fields.setdefault('is_active', True)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -84,16 +82,13 @@ class Personne(AbstractBaseUser):
         db_table = 'personne'
         managed = True   
 
-     #def check_password(self, raw_password):
-       # from django.contrib.auth.hashers import check_password
-        #return check_password(raw_password, self.password)
 
     def __str__(self):
         return self.email
 
 
-class BureauEtude(models.Model):
-    id_bureau = models.AutoField(primary_key=True)  # ID auto-incrémenté
+class BureauEtude(AbstractBaseUser):
+    id_bureau = models.AutoField(primary_key=True)
     date_creation = models.DateField(verbose_name="Date de création")
     nom = models.CharField(max_length=255, verbose_name="Nom")
     numero_telephone = models.CharField(max_length=10, verbose_name="Numéro de téléphone")
@@ -101,7 +96,8 @@ class BureauEtude(models.Model):
     adresse = models.TextField(verbose_name="Adresse")
     wilaya = models.CharField(max_length=100, verbose_name="Wilaya")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
-    password = models.CharField(max_length=128, default="default_password")
+
+    USERNAME_FIELD = "email"
     
     def __str__(self):
         return self.nom
@@ -116,7 +112,6 @@ class Startup(AbstractBaseUser):
     wilaya = models.CharField(max_length=100, verbose_name="Wilaya")
     email = models.EmailField(unique=True, verbose_name="Email")
     numero_telephone = models.CharField(max_length=10, verbose_name="Numéro de téléphone")
-    password = models.CharField(max_length=128, default="default_password")
     TYPE_S = [
         ('Tech', 'Technologie'),
         ('Health', 'Santé'),
@@ -133,10 +128,6 @@ class Startup(AbstractBaseUser):
     class Meta:
         db_table = "startup"  # Define custom table name
         managed = True  # Ensure Django manages this model
-
-     #def check_password(self, raw_password):
-     #   from django.contrib.auth.hashers import check_password
-        #return check_password(raw_password, self.password)
 
     def __str__(self):
         return self.email    

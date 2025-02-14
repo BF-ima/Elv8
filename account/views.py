@@ -9,26 +9,47 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import APIException
 from .authentication import create_access_token, create_refresh_token
 
+
 class LoginAPIView(APIView):
     def post(self, request):
-        user = Startup.objects.filter(email=request.data['email']).first()
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            raise APIException('Email and password are required!')
+
+        user = None
+        t = None
+
+        for model in [Startup, Personne, BureauEtude]:
+            user = model.objects.filter(email=email).first()
+            if user:
+                if model==Personne:
+                    t=user.id_personne
+                elif model==Startup:
+                    t=user.id_startup
+                else:
+                    t=user.id_bureau        
+                break
 
         if not user:
             raise APIException('Invalid credentials!')
-
-        if not user.check_password(request.data['password']):
+     
+        elif not user.check_password(request.data['password']): #not check_password(password, user.password):
             raise APIException('Invalid password!')
-        access_token = create_access_token(user.id_startup, user.nom)
-        refresh_token = create_refresh_token(user.id_startup, user.nom)
+
+        access_token = create_access_token(t, user.nom)
+        refresh_token = create_refresh_token(t, user.nom)
 
         response = Response()
-
         response.set_cookie(key='refreshToken', value=refresh_token, httponly=True)
         response.data = {
-            'token': access_token
+            'token': access_token,
         }
 
         return response
+
+     
 
 # For creating and listing Personne objects
 class PersonneListCreateView(generics.ListCreateAPIView):

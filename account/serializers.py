@@ -28,7 +28,6 @@ class RegisterSerializer(serializers.ModelSerializer):
        
     def create(self, validated_data):
         validated_data.pop('password2')  # Remove 'password2' since it's not part of the model
-        validated_data['password'] = make_password(validated_data['password'])  # 🔹 Hash password
         return Personne.objects.create_user(**validated_data)
 
 

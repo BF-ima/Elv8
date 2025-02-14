@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 
 auth_user_model='account.personne'
 auth_user_model='account.startup'
+auth_user_model='account.bureauEtude'
 
 
 MIDDLEWARE = [
