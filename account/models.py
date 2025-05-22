@@ -3,8 +3,42 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.utils import timezone
 import uuid
 import os
-
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+User = get_user_model()
 # Create your models here.
+
+
+class StartupSignupRequest(models.Model):
+    # Basic info
+    nom = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)  # Store hashed password!
+    
+    # Leader info
+    nom_leader = models.CharField(max_length=255,null=True,blank=True)
+    genre_leader = models.CharField(max_length=50,null=True,blank=True)
+    date_naissance_leader = models.DateField(null=True,blank=True)
+    
+    # Startup details
+    adresse = models.TextField(null=True,blank=True)
+    numero_telephone = models.CharField(max_length=10,null=True,blank=True)
+    wilaya = models.CharField(max_length=100,null=True,blank=True)
+    description = models.TextField(blank=True, null=True)
+    date_creation = models.DateField(null=True,blank=True)
+    secteur = models.CharField(max_length=50,null=True,blank=True)
+    
+    # Document upload
+    document = models.FileField(upload_to='startup_documents/')
+    
+    # Admin review fields
+    is_processed = models.BooleanField(default=False)
+    is_approved = models.BooleanField(null=True)  # None = pending, True = approved, False = rejected
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.nom} ({self.email})"
 
 class PersonneManager(BaseUserManager):
     def create_user(self, email, nom, numero_telephone, genre, adresse, wilaya, date_naissance, titre_role, description_role,  password):
@@ -69,6 +103,12 @@ class Personne(AbstractBaseUser):
     date_naissance = models.DateField()
     titre_role = models.CharField(max_length=100)
     description_role = models.TextField()
+    startups = models.ManyToManyField(
+        'Startup',
+        related_name='personne_memberships',
+        blank=True
+    )
+
 
     USERNAME_FIELD = "email"
     objects = PersonneManager()
@@ -106,25 +146,25 @@ class Startup(AbstractBaseUser):
         (HOMME, 'Homme'),
         (FEMME, 'Femme'),
     ]
-    nom_leader = models.CharField(max_length=255)  
+    nom_leader = models.CharField(max_length=255,null=True,blank=True)  
     genre_leader = models.CharField(max_length=50, choices=GENDER_CHOICES)  
-    date_naissance_leader = models.DateField()
+    date_naissance_leader = models.DateField(null=True,blank=True)
     id_startup = models.AutoField(primary_key=True)
-    date_creation = models.DateField(verbose_name="Date de création")
-    description = models.TextField(verbose_name="Description")
+    date_creation = models.DateField(verbose_name="Date de création",null=True,blank=True)
+    description = models.TextField(verbose_name="Description",null=True,blank=True)
     nom = models.CharField(max_length=255, verbose_name="Nom")
     is_active = models.BooleanField(default=True)
-    adresse = models.TextField(verbose_name="Adresse")
-    wilaya = models.CharField(max_length=100, verbose_name="Wilaya")
+    adresse = models.TextField(verbose_name="Adresse",null=True,blank=True)
+    wilaya = models.CharField(max_length=100, verbose_name="Wilaya",null=True,blank=True)
     email = models.EmailField(unique=True, verbose_name="Email")
-    numero_telephone = models.CharField(max_length=10, verbose_name="Numéro de téléphone")
+    numero_telephone = models.CharField(max_length=10, verbose_name="Numéro de téléphone",null=True,blank=True)
     TYPE_S = [
         ('Tech', 'Technologie'),
         ('Health', 'Santé'),
         ('Finance', 'Finance'),
     ]
-    secteur = models.CharField(max_length=50, choices=TYPE_S, verbose_name="Secteur d'activité")
-    # Added many-to-many relationship with Personne as members
+    secteur = models.CharField(max_length=50, choices=TYPE_S, verbose_name="Secteur d'activité",null=True,blank=True)
+     #Added many-to-many relationship with Personne as members
     members = models.ManyToManyField(Personne, through='StartupMember', related_name='member_of_startups')      
 
     USERNAME_FIELD = "email"
@@ -167,22 +207,22 @@ class Feedback(models.Model):
        
 
 class PersonneProfile(models.Model):
-    personne = models.OneToOneField(Personne, on_delete=models.CASCADE, related_name='profile')
+    personne = models.OneToOneField(Personne, on_delete=models.CASCADE, related_name='profile',null=True,blank=True)#nulled
 
     avatar = models.ImageField(upload_to='personne_avatars/', blank=True, null=True)
     
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100,null=True,blank=True)#nulled
+    last_name = models.CharField(max_length=100,null=True,blank=True)#nulled
     
-    date_of_birth = models.DateField()
-    gender = models.CharField(max_length=10, choices=[("Male", "Male"), ("Female", "Female")])
+    date_of_birth = models.DateField(null=True,blank=True)#nulled
+    gender = models.CharField(max_length=10, choices=[("Male", "Male"), ("Female", "Female")],null=True,blank=True)#nulled
     
     bio = models.TextField(blank=True, null=True)  # e.g., "Co-CEO of Startup"
 
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20,null=True,blank=True)#nulled
 
-    email = models.EmailField()
-    location = models.CharField(max_length=255)
+    email = models.EmailField(null=True,blank=True)#nulled
+    location = models.CharField(max_length=255,null=True,blank=True)#nulled
 
     facebook = models.URLField(blank=True, null=True)
     linkedin = models.URLField(blank=True, null=True)
@@ -190,6 +230,11 @@ class PersonneProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    startups = models.ManyToManyField(
+        'Startup',
+        related_name='memberss'
+    )
+
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} Profile"               
@@ -202,7 +247,7 @@ class BureauEtudeProfile(models.Model):
 
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    location = models.CharField(max_length=255)
+    location = models.CharField(max_length=255, null=True, blank=True)#nulled 
 
     date_creation = models.DateField(null=True)
 
@@ -219,24 +264,24 @@ class BureauEtudeProfile(models.Model):
         return f"Profile of {self.bureau.nom}"
 
 class StartupProfile(models.Model):
-    startup = models.OneToOneField(Startup, on_delete=models.CASCADE, related_name='profile')
+    startup = models.OneToOneField(Startup, on_delete=models.CASCADE, related_name='profile',null=True,blank=True)#nulled
 
     ## leader info 
 
     leader_avatar = models.ImageField(upload_to='personne_avatars/', blank=True, null=True)
     
-    leader_first_name = models.CharField(max_length=100)
-    leader_last_name = models.CharField(max_length=100)
+    leader_first_name = models.CharField(max_length=100,null=True,blank=True)#nulled
+    leader_last_name = models.CharField(max_length=100,null=True,blank=True)#nulled
     
-    leader_date_of_birth = models.DateField()
-    leader_gender = models.CharField(max_length=10, choices=[("Male", "Male"), ("Female", "Female")])
+    leader_date_of_birth = models.DateField(null=True,blank=True)#nulled
+    leader_gender = models.CharField(max_length=10, choices=[("Male", "Male"), ("Female", "Female")],null=True,blank=True)#nulled
     
     leader_bio = models.TextField(blank=True, null=True)  # e.g., "Co-CEO of Startup"
 
-    leader_phone = models.CharField(max_length=20)
+    leader_phone = models.CharField(max_length=20,null=True,blank=True)#nulled
 
-    leader_email = models.EmailField()
-    leader_location = models.CharField(max_length=255)
+    leader_email = models.EmailField(null=True,blank=True)#nulled
+    leader_location = models.CharField(max_length=255,null=True,blank=True)#nulled
 
     leader_facebook = models.URLField(blank=True, null=True)
     leader_linkedin = models.URLField(blank=True, null=True)
@@ -246,15 +291,15 @@ class StartupProfile(models.Model):
     ## startup info 
 
     logo = models.ImageField(upload_to='startup_logos', blank=True, null=True)
-    owner_name = models.CharField(max_length=100)  # "Owned by Fatima Ben Ali"
+    owner_name = models.CharField(max_length=100,null=True,blank=True)  # "Owned by Fatima Ben Ali" #nulled
     
-    phone = models.CharField(max_length=10)
+    phone = models.CharField(max_length=10,null=True,blank=True)#nulled
 
-    email = models.EmailField()
-    location = models.CharField(max_length=255)  # e.g., "Algeria, Sidi Bel Abbes"
+    email = models.EmailField(null=True,blank=True)#nulled
+    location = models.CharField(max_length=255,null=True,blank=True)  # e.g., "Algeria, Sidi Bel Abbes"   #nulled
 
-    industry = models.CharField(max_length=100)
-    description = models.TextField()
+    industry = models.CharField(max_length=100,null=True,blank=True)#nulled
+    description = models.TextField(null=True,blank=True)#nulled
 
     website = models.URLField(blank=True, null=True)
     
@@ -269,10 +314,14 @@ class StartupProfile(models.Model):
 
     #  memebers of the startup
 
-    members = models.ManyToManyField('Personne', related_name='startups')
+    members = models.ManyToManyField(
+        'Personne',
+        related_name='profile_memberships',
+        blank=True
+    )
 
     def __str__(self):
-        return f"Profile of {self.startup.name}"  
+        return f"Profile of {self.startup.nom}"  
 
 
 class Chat(models.Model):
@@ -370,13 +419,13 @@ class MessageAttachment(models.Model):
         return f"Attachment for {self.message}" 
 
 
-class ConsultationType(models.Model):
+"""class ConsultationType(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     
     def __str__(self):
         return self.name
-
+"""
 class ConsultationRequest(models.Model):
     PENDING = 'pending'
     ACCEPTED = 'accepted'
@@ -390,9 +439,21 @@ class ConsultationRequest(models.Model):
         (COMPLETED, 'Completed'),
     ]
     
+    FINANCIAL = 'Financial'
+    STRATEGIC = 'Strategic'
+    IT= 'It'
+    
+    
+    ConsultationTypes_CHOICES = [
+        (FINANCIAL, 'Financial'),
+        (STRATEGIC, 'Strategic'),
+        (IT, 'It'),
+    ]
+    
     bureau = models.ForeignKey(BureauEtude, on_delete=models.CASCADE, related_name='consultation_requests')
     startup = models.ForeignKey(Startup, on_delete=models.CASCADE, related_name='consultation_requests')
-    consultation_type = models.ForeignKey(ConsultationType, on_delete=models.SET_NULL, null=True)
+    #consultation_type = models.ForeignKey(ConsultationType, on_delete=models.SET_NULL, null=True)
+    consultation_type = models.CharField(max_length=30, choices=ConsultationTypes_CHOICES, default=STRATEGIC)
     problem_description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -410,4 +471,56 @@ class PaymentRequest(models.Model):
     
     def __str__(self):
         return f"Payment request for {self.consultation} - {self.amount} DA"
+    
+#addedddddddddddddddddddddd
+
+class PasswordResetCode(models.Model): 
+    email = models.EmailField()
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + datetime.timedelta(minutes=10)  # code expires in 10 min        
+
+
+class Event(models.Model):
+    title = models.CharField(max_length=255)
+    event_date = models.CharField(max_length=100)
+    
+    # Generic Foreign Key for multiple user types
+    owner_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    owner_id = models.PositiveIntegerField(null=True, blank=True) 
+    owner = GenericForeignKey('owner_type', 'owner_id')
+    
+    with_who = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    Startup_Consultation = 'Startup Consultation'
+    Progress_Review = 'Progress Review'
+    
+    EVENT_TYPE_CHOICES = [
+        (Startup_Consultation, 'Startup Consultation'),
+        (Progress_Review, 'Progress Review'),
+    ]
+    
+    event_type = models.CharField(
+        max_length=40,
+        choices=EVENT_TYPE_CHOICES,
+        default='Video Meeting',  # Optional: set a default
+    )
+    
+    
+    
+
+class BlacklistedToken(models.Model):# addeddddddddddddddd
+    token = models.CharField(max_length=500, unique=True)
+    blacklisted_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    def __str__(self):
+        return f"Token blacklisted at {self.blacklisted_at}"
+
+    class Meta:
+        db_table = 'blacklisted_tokens'    
+    
+    
     

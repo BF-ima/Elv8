@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Personne, Startup, BureauEtude, Chat, Message, MessageAttachment
+from .models import Personne, Startup, BureauEtude, Chat, Message, MessageAttachment, StartupSignupRequest
 
 @admin.register(Chat)
 class ChatAdmin(admin.ModelAdmin):
@@ -24,6 +24,8 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 
 admin.site.register(Personne)
+admin.site.register(StartupSignupRequest)
+
 
 #admin.site.register(Startup)
 

@@ -6,11 +6,32 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import authenticate
 from django.contrib.auth.backends import ModelBackend
 from django.utils import timezone
-from .models import ConsultationType
-from .models import ConsultationRequest
+from django.contrib.contenttypes.models import ContentType
+import re
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+#from .models import ConsultationType
+from .models import ConsultationRequest, StartupSignupRequest
 from .models import PaymentRequest
+from .models import Event
+from django.shortcuts import get_object_or_404
 
+User = get_user_model()
 
+def is_password_valid(password):
+
+    if len(password) < 8:
+        return False
+    
+   
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False
+    
+    
+    if not re.search(r"[A-Z]", password):
+        return False
+    
+    return True  
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
     password2 = serializers.CharField(write_only=True, required=True)
@@ -32,7 +53,20 @@ class RegisterSerializer(serializers.ModelSerializer):
        
     def create(self, validated_data):
         validated_data.pop('password2')  # Remove 'password2' since it's not part of the model
-        return Personne.objects.create_user(**validated_data)
+        personne = Personne.objects.create_user(**validated_data)  # ✅ Create the user first
+
+        PersonneProfile.objects.create(personne=personne)  # ✅ Now use the created instance
+
+        return personne
+
+class StartupSignupRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StartupSignupRequest
+        fields = ['nom', 'email', 'password', 'nom_leader', 'genre_leader', 'date_naissance_leader','adresse', 'numero_telephone', 'wilaya', 'description', 'date_creation', 'secteur','document'
+        ]
+    def create(self, validated_data):
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
 
 
 class RegisterStartupSerializer(serializers.ModelSerializer):
@@ -53,8 +87,29 @@ class RegisterStartupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
-        validated_data['password'] = make_password(validated_data['password'])  # 🔹 Hash password
-        return Startup.objects.create(**validated_data)
+        password = validated_data.pop('password')
+        startup = Startup.objects.create(**validated_data)
+        startup.set_password(password)
+        startup.save()
+
+        # Now create the profile and fill in the fields from validated_data
+        StartupProfile.objects.create(
+            startup=startup,
+            email=startup.email,
+            description=startup.description,
+            date_creation=startup.date_creation,
+            industry=startup.secteur,
+            location=startup.adresse,
+            leader_first_name=startup.nom_leader.split()[0] if startup.nom_leader else None,
+            leader_last_name=' '.join(startup.nom_leader.split()[1:]) if startup.nom_leader and len(startup.nom_leader.split()) > 1 else None,
+            leader_date_of_birth=startup.date_naissance_leader,
+            leader_gender=startup.genre_leader,
+            leader_phone=startup.numero_telephone,
+            # ...add any other fields you want to prefill
+        )
+
+        return startup
+
 
 
 
@@ -73,9 +128,9 @@ class StartupSerializer(serializers.ModelSerializer):
 
 class BureauEtudeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Startup
-        fields = ['nom', 'adresse', 'numero_telephone', 'email', 'wilaya', 'description', 'date_creation']
-        read_only_fields = ['id_bureau']  
+        model = BureauEtude
+        fields = ['id_bureau', 'nom', 'adresse', 'numero_telephone', 'email', 'wilaya', 'description', 'date_creation']
+        read_only_fields = ['id_bureau']
 
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
@@ -223,21 +278,28 @@ class StartupProfileUpdateSerializer(serializers.ModelSerializer):
         }
 
 
-class ConsultationTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ConsultationType
-        fields = '__all__'
+
 
 class ConsultationRequestSerializer(serializers.ModelSerializer):
     bureau = BureauEtudeSerializer(read_only=True)
     startup = StartupSerializer(read_only=True)
-    consultation_type = ConsultationTypeSerializer(read_only=True)
+
+    #consultation_type = ConsultationTypeSerializer(read_only=True)
     
     class Meta:
         model = ConsultationRequest
         fields = '__all__'
         read_only_fields = ('status', 'created_at', 'updated_at')
+   
+class ConsultationRequestSimpleSerializer(serializers.ModelSerializer):
+    request_from = serializers.CharField(source='startup.nom', read_only=True)
+    type = serializers.CharField(source='consultation_type', read_only=True)
+    description = serializers.CharField(source='problem_description', read_only=True)
 
+    class Meta:
+        model = ConsultationRequest
+        fields = ['request_from', 'type', 'description']
+        
 class ConsultationRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConsultationRequest
@@ -255,3 +317,86 @@ class PaymentRequestSerializer(serializers.ModelSerializer):
         model = PaymentRequest
         fields = '__all__'
         read_only_fields = ('is_paid', 'created_at')
+
+
+class ForgotPasswordSerializer(serializers.Serializer):                #addedddddddddddddddddddddddddddd
+    email = serializers.EmailField()
+
+class ResetPasswordWithCodeSerializer(serializers.Serializer):          #addedddddddddddddddddd
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6)
+    new_password = serializers.CharField(write_only=True)
+    confirm_new_password = serializers.CharField(write_only=True)
+    
+class EventSerializer(serializers.ModelSerializer):
+    event_type = serializers.ChoiceField(choices=Event.EVENT_TYPE_CHOICES)
+
+    class Meta:
+        model = Event
+        fields = ['id', 'title', 'event_date', 'with_who', 'created_at', 'event_type']
+        read_only_fields = ['id', 'created_at', 'owner_type', 'owner_id']
+
+    def create(self, validated_data):
+        # Get the current user from the context
+        user = self.context['request'].user
+        
+        # Set the owner information
+        validated_data['owner_type'] = ContentType.objects.get_for_model(user)
+        validated_data['owner_id'] = user.pk
+        
+        # Create the event
+        event = Event.objects.create(**validated_data)
+        
+        # Send email notification with video call specific format
+        subject = f"Event Reminder: {validated_data['title']}"
+        message = f"""
+Dear {user.nom},
+
+This is a reminder about your upcoming event:
+
+Event Details:
+------------------
+Title: {validated_data['title']}
+Type: {validated_data['event_type']}
+Date: {validated_data['event_date']}
+
+
+Important Reminders:
+------------------
+• Please ensure you have a stable internet connection
+• Test your microphone and camera before the meeting
+• Join the call 5 minutes before the scheduled time
+
+
+Best regards,
+Elv8 Team
+"""
+        from_email = 'emenoellin@gmail.com'
+        recipient_list = [user.email]
+        
+        try:
+            # Test SMTP connection first
+            from django.core.mail import get_connection
+            connection = get_connection()
+            connection.open()
+            
+            # Send the email
+            send_mail(
+                subject,
+                message,
+                from_email,
+                recipient_list,
+                fail_silently=False,
+            )
+            print(f"Successfully sent event reminder email to {user.email}")
+        except Exception as e:
+            print(f"Failed to send event reminder email: {str(e)}")
+            # Log the error but don't prevent event creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send event reminder email to {user.email}: {str(e)}")
+        
+        return event    
+    
+    
+

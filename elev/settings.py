@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework_simplejwt', 
     'corsheaders',
+    'django_extensions',
     
 ]
 
@@ -62,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     
 ]
 
@@ -147,7 +149,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'account.authentication.JWTAuthentication',  # Replace 'your_app' with your actual app name
+        'account.authentication.CustomJWTAuthentication',  # Replace 'your_app' with your actual app name
     )
 }
 
@@ -181,3 +183,10 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'emenoellin@gmail.com'
+EMAIL_HOST_PASSWORD = 'joob jyoz gwrv hvpm'
