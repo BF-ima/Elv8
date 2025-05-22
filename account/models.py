@@ -30,6 +30,7 @@ class StartupSignupRequest(models.Model):
     secteur = models.CharField(max_length=50,null=True,blank=True)
     
     # Document upload
+    
     document = models.FileField(upload_to='startup_documents/')
     
     # Admin review fields
@@ -147,7 +148,7 @@ class Startup(AbstractBaseUser):
         (FEMME, 'Femme'),
     ]
     nom_leader = models.CharField(max_length=255,null=True,blank=True)  
-    genre_leader = models.CharField(max_length=50, choices=GENDER_CHOICES)  
+    genre_leader = models.CharField(max_length=50, choices=GENDER_CHOICES,null=True,blank=True)  
     date_naissance_leader = models.DateField(null=True,blank=True)
     id_startup = models.AutoField(primary_key=True)
     date_creation = models.DateField(verbose_name="Date de création",null=True,blank=True)
@@ -166,6 +167,7 @@ class Startup(AbstractBaseUser):
     secteur = models.CharField(max_length=50, choices=TYPE_S, verbose_name="Secteur d'activité",null=True,blank=True)
      #Added many-to-many relationship with Personne as members
     members = models.ManyToManyField(Personne, through='StartupMember', related_name='member_of_startups')      
+    document = models.FileField(upload_to='startup_documents/',null=True,blank=True)
 
     USERNAME_FIELD = "email"
     objects = StartupManager()
